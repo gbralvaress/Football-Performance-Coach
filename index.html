@@ -1,0 +1,255 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Football Performance Coach</title>
+<style>
+:root{--bg:#07110c;--card:#102018;--card2:#15291e;--text:#f4f7f4;--muted:#9fb0a4;--accent:#7cff9b;--accent2:#39d86a;--danger:#ff6f6f;--line:#263b2e}
+*{box-sizing:border-box}body{margin:0;background:linear-gradient(160deg,#06100a,#0b1710 55%,#07110c);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+button,input,select{font:inherit}button{border:0;cursor:pointer}.app{max-width:900px;margin:auto;padding:18px 16px 100px}.top{display:flex;justify-content:space-between;align-items:center;margin-bottom:18px}.brand{font-weight:900;font-size:21px}.badge{font-size:12px;background:#193521;color:var(--accent);padding:7px 10px;border-radius:99px}
+.nav{position:fixed;bottom:0;left:0;right:0;background:#09150eec;backdrop-filter:blur(16px);border-top:1px solid var(--line);display:flex;justify-content:center;z-index:5}.navin{max-width:900px;width:100%;display:grid;grid-template-columns:repeat(5,1fr)}.nav button{background:none;color:var(--muted);padding:11px 4px 13px;font-size:11px}.nav button.active{color:var(--accent)}.nav i{display:block;font-style:normal;font-size:20px;margin-bottom:2px}
+h1{font-size:30px;line-height:1.05;margin:8px 0}.sub{color:var(--muted);margin-bottom:18px}.hero{background:linear-gradient(135deg,#153b22,#0d2116);border:1px solid #285337;border-radius:24px;padding:20px;box-shadow:0 15px 50px #0005}.hero .kicker{color:var(--accent);font-weight:800;font-size:13px;text-transform:uppercase}.hero h2{font-size:27px;margin:7px 0}.chips{display:flex;flex-wrap:wrap;gap:7px;margin:12px 0}.chip{background:#ffffff0d;border:1px solid #ffffff14;padding:7px 9px;border-radius:10px;font-size:12px;color:#d8e5db}
+.grid{display:grid;grid-template-columns:repeat(2,1fr);gap:12px;margin-top:14px}.card{background:var(--card);border:1px solid var(--line);border-radius:18px;padding:15px}.card h3{margin:0 0 7px}.muted{color:var(--muted);font-size:13px}.metric{font-size:25px;font-weight:900}.section{margin-top:20px}.sectionhead{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px}.sectionhead h2{margin:0;font-size:19px}
+.primary{width:100%;padding:14px 16px;border-radius:14px;background:var(--accent);color:#06100a;font-weight:900;margin-top:13px}.secondary{padding:10px 13px;border-radius:12px;background:#ffffff0d;color:var(--text);border:1px solid var(--line)}
+.exercise{display:flex;gap:12px;align-items:center;background:var(--card);border:1px solid var(--line);border-radius:16px;padding:13px;margin:9px 0}.num{min-width:34px;height:34px;border-radius:10px;background:#1a3624;color:var(--accent);display:grid;place-items:center;font-weight:900}.exercise strong{display:block}.tag{font-size:11px;color:var(--muted);margin-top:4px}.right{margin-left:auto;text-align:right}.time{font-weight:800}
+.page{display:none}.page.active{display:block}.form{display:grid;gap:12px}.field{background:var(--card);border:1px solid var(--line);border-radius:15px;padding:12px}.field label{display:block;color:var(--muted);font-size:12px;margin-bottom:6px}.field input,.field select{width:100%;background:transparent;border:0;outline:0;color:var(--text)}option{background:#102018}
+.slider{width:100%;accent-color:var(--accent)}.rating{font-size:34px;font-weight:900}.progress{height:8px;background:#1b2a20;border-radius:99px;overflow:hidden}.progress span{display:block;height:100%;background:var(--accent);width:35%}
+.modal{position:fixed;inset:0;background:#0009;display:none;align-items:flex-end;z-index:10}.modal.open{display:flex}.sheet{background:#0b1710;border:1px solid var(--line);border-radius:25px 25px 0 0;width:100%;max-width:900px;margin:auto;padding:18px;max-height:88vh;overflow:auto}.timer{font-size:64px;text-align:center;font-weight:900;margin:25px}.center{text-align:center}.danger{color:var(--danger)}
+.smallgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}.smallgrid .card{padding:11px}.list{display:grid;gap:8px}.empty{padding:25px;text-align:center;color:var(--muted);border:1px dashed var(--line);border-radius:16px}
+@media(min-width:700px){.grid{grid-template-columns:repeat(4,1fr)}.nav{position:sticky;top:0;bottom:auto;border:0;margin:-18px -16px 20px}.navin{max-width:900px}.app{padding-top:18px}}
+</style>
+</head>
+<body>
+<div class="app">
+<div class="top"><div class="brand">⚽ FPC <span style="color:var(--accent)">PRO</span></div><div class="badge" id="dayBadge"></div></div>
+
+<section id="home" class="page active">
+<div class="sub" id="greeting">Seu centro de performance</div>
+<div class="hero">
+<div class="kicker" id="todayKicker">TREINO DE HOJE</div>
+<h2 id="todayTitle">Carregando...</h2>
+<div class="chips" id="todayChips"></div>
+<div class="muted" id="todayDesc"></div>
+<button class="primary" onclick="openWorkout()">▶ COMEÇAR TREINO</button>
+</div>
+<div class="grid">
+<div class="card"><div class="muted">Prontidão</div><div class="metric" id="readiness">—%</div></div>
+<div class="card"><div class="muted">Carga semanal</div><div class="metric" id="weeklyLoad">0</div></div>
+<div class="card"><div class="muted">Treinos</div><div class="metric" id="sessions">0</div></div>
+<div class="card"><div class="muted">Minutos</div><div class="metric" id="minutes">0</div></div>
+</div>
+<div class="section"><div class="sectionhead"><h2>📋 Seu check-in</h2><button class="secondary" onclick="show('profile')">Editar</button></div>
+<div class="card"><div class="smallgrid">
+<div><div class="muted">Sono</div><b id="homeSleep">—</b></div><div><div class="muted">Energia</div><b id="homeEnergy">—</b></div><div><div class="muted">Dor</div><b id="homePain">—</b></div>
+</div></div></div>
+<div class="section"><div class="sectionhead"><h2>🔥 Próximos focos</h2></div><div class="list" id="focusList"></div></div>
+</section>
+
+<section id="train" class="page">
+<h1>Treino</h1><div class="sub">Planeje, execute e registre cada sessão.</div>
+<div class="card">
+<div class="field"><label>OBJETIVO</label><select id="goalSelect" onchange="refreshPlan()"><option>Finalização</option><option>Condução e domínio</option><option>Passe e tomada de decisão</option><option>Velocidade e aceleração</option><option>Agilidade e mudança de direção</option><option>1x1 ofensivo</option><option>1x1 defensivo</option><option>Resistência específica</option><option>Potência</option><option>Recuperação ativa</option></select></div>
+<div class="grid"><div class="field"><label>DURAÇÃO</label><select id="duration"><option>45</option><option selected>60</option><option>75</option><option>90</option></select></div><div class="field"><label>INTENSIDADE</label><select id="intensity"><option>Leve</option><option selected>Moderada</option><option>Alta</option></select></div></div>
+</div>
+<div class="section"><div class="sectionhead"><h2 id="planTitle">Plano</h2><span class="badge" id="planLoad">Moderado</span></div><div id="planExercises"></div></div>
+<button class="primary" onclick="openWorkout()">▶ EXECUTAR ESTE TREINO</button>
+</section>
+
+<section id="history" class="page">
+<h1>Histórico</h1><div class="sub">Sua evolução, carga e consistência.</div>
+<div class="grid"><div class="card"><div class="muted">Sessões</div><div class="metric" id="hSessions">0</div></div><div class="card"><div class="muted">Minutos</div><div class="metric" id="hMinutes">0</div></div><div class="card"><div class="muted">Carga total</div><div class="metric" id="hLoad">0</div></div><div class="card"><div class="muted">Média RPE</div><div class="metric" id="hRpe">—</div></div></div>
+<div class="section"><h2>Últimos treinos</h2><div class="list" id="historyList"></div></div>
+</section>
+
+<section id="profile" class="page">
+<h1>Meu perfil</h1><div class="sub">Esses dados alimentam a recomendação diária.</div>
+<div class="form">
+<div class="field"><label>NOME</label><input id="name" value="Atleta"></div>
+<div class="grid"><div class="field"><label>POSIÇÃO</label><select id="position"><option>Meia</option><option>Lateral</option><option>Volante</option><option>Ala</option><option>Ponta</option><option>Fixo</option></select></div><div class="field"><label>PÉ DOMINANTE</label><select id="foot"><option>Direito</option><option>Esquerdo</option><option>Ambidestro</option></select></div></div>
+<div class="field"><label>OBJETIVO PRINCIPAL</label><select id="mainGoal"><option>Performance</option><option>Finalização</option><option>Velocidade</option><option>Técnica</option><option>Condicionamento</option></select></div>
+<div class="field"><label>SONO: <b id="sleepVal">8</b> h</label><input class="slider" id="sleep" type="range" min="3" max="10" step=".25" value="8" oninput="sleepVal.textContent=this.value"></div>
+<div class="field"><label>ENERGIA: <b id="energyVal">8</b>/10</label><input class="slider" id="energy" type="range" min="1" max="10" value="8" oninput="energyVal.textContent=this.value"></div>
+<div class="field"><label>DOR: <b id="painVal">0</b>/10</label><input class="slider" id="pain" type="range" min="0" max="10" value="0" oninput="painVal.textContent=this.value"></div>
+<div class="field"><label>JOGOU/TREINOU FORTE NAS ÚLTIMAS 24H?</label><select id="recentLoad"><option>Não</option><option>Sim</option></select></div>
+<button class="primary" onclick="saveProfile()">SALVAR E ATUALIZAR</button>
+</div>
+<div class="section"><div class="card"><b>⚠️ Regra de segurança</b><p class="muted">Dor forte, aguda, progressiva ou alteração de movimento é sinal para reduzir/parar e procurar avaliação profissional. O app não substitui fisioterapeuta, médico ou preparador físico.</p></div></div>
+</section>
+
+<section id="settings" class="page">
+<h1>Mais</h1><div class="sub">Ferramentas do seu centro de performance.</div>
+<div class="list">
+<div class="card"><b>📅 Periodização</b><p class="muted">Organize microciclos por objetivo e jogos.</p><button class="secondary" onclick="alert('Na V1, a periodização automática usa o check-in e o histórico. Próxima evolução: calendário com jogos.')">Abrir</button></div>
+<div class="card"><b>🧪 Testes de campo</b><p class="muted">Sprint, agilidade, salto, Yo-Yo e testes técnicos.</p><button class="secondary" onclick="alert('Módulo preparado para adicionar testes e comparar resultados.')">Abrir</button></div>
+<div class="card"><b>🎯 Biblioteca</b><p class="muted">Exercícios organizados por técnico, físico, tático e específico.</p><button class="secondary" onclick="alert('Biblioteca integrada ao gerador de treinos.')">Abrir</button></div>
+<div class="card"><b>💾 Dados</b><p class="muted">Seu histórico fica salvo neste dispositivo.</p><button class="secondary" onclick="exportData()">Exportar JSON</button></div>
+</div>
+</section>
+</div>
+
+<div class="nav"><div class="navin">
+<button class="active" onclick="show('home',this)"><i>🏠</i>Hoje</button>
+<button onclick="show('train',this)"><i>⚽</i>Treinar</button>
+<button onclick="show('history',this)"><i>📈</i>Histórico</button>
+<button onclick="show('profile',this)"><i>👤</i>Perfil</button>
+<button onclick="showV2()"><i>🚀</i>PRO</button><button onclick="show('settings',this)"><i>⚙️</i>Mais</button>
+</div></div>
+
+<div class="modal" id="workoutModal"><div class="sheet">
+<div class="top"><b id="modalTitle">Treino</b><button class="secondary" onclick="closeWorkout()">✕</button></div>
+<div class="card"><div class="muted">EXERCÍCIO ATUAL</div><h2 id="currentEx">Aquecimento</h2><p class="muted" id="currentDesc"></p><div class="timer" id="timer">05:00</div><div class="progress"><span id="timerBar"></span></div><div class="grid"><button class="secondary" onclick="addTime(-30)">−30s</button><button class="primary" onclick="toggleTimer()" id="timerBtn">▶ Iniciar</button><button class="secondary" onclick="addTime(30)">+30s</button></div><button class="secondary" style="width:100%;margin-top:9px" onclick="nextExercise()">Próximo exercício →</button></div>
+<div class="section"><h3>Checklist</h3><div id="modalList"></div></div>
+<div class="section"><button class="primary" onclick="finishWorkout()">✓ FINALIZAR E REGISTRAR</button></div>
+</div></div>
+
+<script>
+const plans={
+"Finalização":[["Aquecimento técnico","Condução leve + mobilidade + 3 acelerações","8:00"],["Finalização após condução","Conduzir → corte → chute. 4×5 cada lado","12:00"],["Recepção orientada + chute","Primeiro toque para frente → aceleração → finalização. 4×4","15:00"],["Tomada de decisão","2 alvos/zonas: escolher canto antes do chute. 3×6","12:00"],["Precisão sob fadiga","8 finalizações alternando pés","8:00"],["Volta à calma","Respiração + mobilidade leve","5:00"]],
+"Condução e domínio":[["Aquecimento com bola","Mobilidade + condução com os dois pés","8:00"],["Domínio orientado","Receber, orientar e acelerar em 3 direções","12:00"],["Condução em slalom","6 cones, alternando pé e direção","12:00"],["Mudança de ritmo","5m controle + 10m aceleração × 8","12:00"],["Condução + passe","Receber → conduzir → passe em alvo","10:00"],["Volta à calma","Mobilidade","5:00"]],
+"Passe e tomada de decisão":[["Aquecimento","Passe curto em movimento + mobilidade","8:00"],["Passe orientado","Primeiro toque longe da pressão","12:00"],["Passe em alvo","Alvos numerados; variar distância","12:00"],["3 zonas","Receber → levantar cabeça → escolher alvo","15:00"],["Passe sob fadiga","Aceleração curta + passe de precisão","8:00"],["Volta à calma","5:00"]],
+"Velocidade e aceleração":[["Aquecimento progressivo","Mobilidade + corrida técnica","10:00"],["Técnica de aceleração","6×10m, recuperação completa","10:00"],["Sprint 10–20m","6 repetições, 90–120s descanso","15:00"],["Reação","Sinal visual/sonoro → sprint 10m × 8","12:00"],["Sprint + bola","Condução rápida 10–15m × 6","8:00"],["Volta à calma","5:00"]],
+"Agilidade e mudança de direção":[["Aquecimento","Mobilidade + deslocamentos laterais","8:00"],["Frenagem","Acelerar 8m → frear controlado × 6","10:00"],["5-10-5","4–6 repetições com recuperação","12:00"],["Reação direcional","Comando → mudança de direção → aceleração","15:00"],["Agilidade + bola","Receber, cortar e acelerar × 8","10:00"],["Volta à calma","5:00"]],
+"1x1 ofensivo":[["Aquecimento com bola","Fintas simples + acelerações","8:00"],["Finta parada","3 fintas × 5 cada lado","10:00"],["Ataque ao espaço","Defensor passivo → mudança de ritmo","12:00"],["1×1 canal","6–8 duelos curtos","15:00"],["Finalização pós-1×1","Vencer duelo → finalizar","10:00"],["Volta à calma","5:00"]],
+"1x1 defensivo":[["Aquecimento","Deslocamento lateral + mobilidade","8:00"],["Base defensiva","Distância, orientação corporal e contenção","10:00"],["Espelho","Reagir ao atacante por 5–8s × 8","12:00"],["Canal 1×1","Conter → temporizar → recuperar","15:00"],["Transição","Roubar → passe seguro em 3s","10:00"],["Volta à calma","5:00"]],
+"Resistência específica":[["Aquecimento","8–10 min progressivo","10:00"],["Bloco técnico","4×4 min técnico com 2 min leve","18:00"],["Intermitente","10×(30s forte/30s leve)","10:00"],["Ações específicas","Condução + aceleração + passe × 8","12:00"],["Desaceleração","Corrida leve + mobilidade","5:00"]],
+"Potência":[["Aquecimento","Mobilidade + técnica de corrida","10:00"],["Saltos controlados","3×5 saltos, recuperação completa","10:00"],["Aceleração curta","6×10m, qualidade máxima","12:00"],["Potência com bola","Condução forte + chute × 6","12:00"],["Explosão reativa","Comando → 5–8m × 8","10:00"],["Volta à calma","5:00"]],
+"Recuperação ativa":[["Caminhada/corrida leve","Conversacional, sem forçar","10:00"],["Mobilidade","Quadril, tornozelo, posterior, adutores","15:00"],["Técnica leve","Domínio e passe em baixa intensidade","15:00"],["Respiração","4–6 min de respiração controlada","5:00"]]
+};
+let data=JSON.parse(localStorage.getItem('fpcData')||'{"profile":{"name":"Atleta","position":"Meia","foot":"Direito","mainGoal":"Performance","sleep":8,"energy":8,"pain":0,"recentLoad":"Não"},"sessions":[]}');
+let selectedPlan="Finalização", current=0, seconds=300, timerId=null;
+const $=id=>document.getElementById(id);
+function save(){localStorage.setItem('fpcData',JSON.stringify(data))}
+function show(id,btn){document.querySelectorAll('.page').forEach(x=>x.classList.remove('active'));$(id).classList.add('active');document.querySelectorAll('.nav button').forEach(x=>x.classList.remove('active'));if(btn)btn.classList.add('active');else document.querySelectorAll('.nav button')[0].classList.toggle('active',id==='home');render()}
+function dayName(){return new Intl.DateTimeFormat('pt-BR',{weekday:'long'}).format(new Date())}
+function dailyGoal(){let p=data.profile;if(+p.pain>=4||+p.energy<=4||p.recentLoad==="Sim")return "Recuperação ativa";let d=new Date().getDay();let arr=["Recuperação ativa","Finalização","Passe e tomada de decisão","Velocidade e aceleração","Agilidade e mudança de direção","1x1 ofensivo","Condução e domínio"];return arr[d]}
+function readiness(){let p=data.profile;let r=50+(+p.sleep-6)*7+(+p.energy-5)*5-(+p.pain)*6-(p.recentLoad==="Sim"?10:0);return Math.max(0,Math.min(100,Math.round(r)))}
+function render(){
+$("dayBadge").textContent=dayName();
+$("greeting").textContent=`Boa noite, ${data.profile.name}. Vamos evoluir hoje.`;
+selectedPlan=dailyGoal();$("todayTitle").textContent=selectedPlan;$("todayKicker").textContent="TREINO DE HOJE";
+let r=readiness();$("readiness").textContent=r+"%";$("weeklyLoad").textContent=data.sessions.slice(-7).reduce((a,s)=>a+s.load,0);$("sessions").textContent=data.sessions.length;$("minutes").textContent=data.sessions.reduce((a,s)=>a+s.minutes,0);
+$("todayChips").innerHTML=`<span class="chip">⏱️ 60 min</span><span class="chip">🔥 ${r>=75?"Moderada/alta":r>=55?"Moderada":"Leve"}</span><span class="chip">📍 Campo</span>`;
+$("todayDesc").textContent=r<55?"Hoje a prioridade é qualidade e recuperação. Evite forçar intensidade máxima.":"Treino montado com base no seu check-in e objetivo.";
+$("homeSleep").textContent=data.profile.sleep+"h";$("homeEnergy").textContent=data.profile.energy+"/10";$("homePain").textContent=data.profile.pain+"/10";
+$("focusList").innerHTML=[["🎯","Qualidade técnica","Priorize execução limpa antes de aumentar volume."],["⚡","Tomada de decisão","Levante a cabeça antes de executar."],["📈","Progressão","Aumente carga somente quando terminar com qualidade."]].map(x=>`<div class="card"><b>${x[0]} ${x[1]}</b><div class="muted">${x[2]}</div></div>`).join("");
+refreshPlan();renderHistory();loadProfile();
+}
+function refreshPlan(){selectedPlan=$("goalSelect").value;let arr=plans[selectedPlan]||plans.Finalização;$("planTitle").textContent=selectedPlan;$("planLoad").textContent=$("intensity").value;$("planExercises").innerHTML=arr.map((x,i)=>`<div class="exercise"><div class="num">${i+1}</div><div><strong>${x[0]}</strong><div class="tag">${x[1]}</div></div><div class="right time">${x[2]}</div></div>`).join("")}
+function loadProfile(){let p=data.profile;["name","position","foot","mainGoal","recentLoad"].forEach(k=>{if($(k))$(k).value=p[k]});["sleep","energy","pain"].forEach(k=>{if($(k)){$(k).value=p[k];$(k+"Val").textContent=p[k]}})}
+function saveProfile(){let p=data.profile;["name","position","foot","mainGoal","recentLoad"].forEach(k=>p[k]=$(k).value);["sleep","energy","pain"].forEach(k=>p[k]=+$(k).value);save();alert("Perfil atualizado. O treino de hoje foi recalculado.");show("home")}
+function openWorkout(){selectedPlan=$("goalSelect").value;current=0;loadExercise();$("workoutModal").classList.add("open")}
+function closeWorkout(){clearInterval(timerId);timerId=null;$("workoutModal").classList.remove("open")}
+function loadExercise(){let arr=plans[selectedPlan];let x=arr[current%arr.length];$("modalTitle").textContent=selectedPlan;$("currentEx").textContent=x[0];$("currentDesc").textContent=x[1];seconds=parseTime(x[2]);updateTimer();$("modalList").innerHTML=arr.map((a,i)=>`<div class="exercise" style="opacity:${i===current?.45:1}"><div class="num">${i+1}</div><div><strong>${a[0]}</strong><div class="tag">${a[1]}</div></div><div class="right">${a[2]}</div></div>`).join("")}
+function parseTime(s){let p=s.split(":");return (+p[0])*60+(+p[1]||0)}
+function updateTimer(){let m=Math.floor(seconds/60),s=seconds%60;$("timer").textContent=String(m).padStart(2,"0")+":"+String(s).padStart(2,"0");let total=parseTime((plans[selectedPlan][current]||["","", "5:00"])[2]);$("timerBar").style.width=Math.max(0,Math.min(100,(1-seconds/total)*100))+"%"}
+function toggleTimer(){if(timerId){clearInterval(timerId);timerId=null;$("timerBtn").textContent="▶ Continuar"}else{timerId=setInterval(()=>{seconds--;updateTimer();if(seconds<=0){clearInterval(timerId);timerId=null;$("timerBtn").textContent="▶ Iniciar";navigator.vibrate?.(300);}},1000);$("timerBtn").textContent="⏸ Pausar"}}
+function addTime(n){seconds=Math.max(0,seconds+n);updateTimer()}
+function nextExercise(){clearInterval(timerId);timerId=null;current++;if(current>=plans[selectedPlan].length){finishWorkout();return}loadExercise()}
+function finishWorkout(){clearInterval(timerId);timerId=null;let minutes=+$("duration").value||60;let rpe=prompt("De 1 a 10, qual foi a intensidade percebida (RPE)?","7");rpe=Math.max(1,Math.min(10,+rpe||7));data.sessions.push({date:new Date().toISOString(),goal:selectedPlan,minutes,rpe,load:minutes*rpe});save();closeWorkout();alert("Treino registrado! Carga: "+minutes*rpe+" UA. 🔥");show("history")}
+function renderHistory(){let ss=data.sessions;let mins=ss.reduce((a,s)=>a+s.minutes,0),load=ss.reduce((a,s)=>a+s.load,0),r=ss.length?ss.reduce((a,s)=>a+s.rpe,0)/ss.length:0;$("hSessions").textContent=ss.length;$("hMinutes").textContent=mins;$("hLoad").textContent=load;$("hRpe").textContent=ss.length?r.toFixed(1):"—";$("historyList").innerHTML=ss.slice().reverse().slice(0,20).map(s=>`<div class="exercise"><div class="num">⚽</div><div><strong>${s.goal}</strong><div class="tag">${new Date(s.date).toLocaleDateString('pt-BR')} · ${s.minutes} min · RPE ${s.rpe}</div></div><div class="right"><b>${s.load}</b><div class="tag">UA</div></div></div>`).join("")||'<div class="empty">Ainda não há treinos registrados.</div>'}
+function exportData(){let blob=new Blob([JSON.stringify(data,null,2)],{type:"application/json"}),a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download="fpc-dados.json";a.click()}
+$("goalSelect").value=dailyGoal();render();
+renderV2();
+</script>
+
+<!-- NEXT LEVEL V2 -->
+<section id="pro" class="page">
+<h1>Performance PRO</h1><div class="sub">Periodização, testes, jogos e evolução em um só lugar.</div>
+
+<div class="card">
+  <div class="sectionhead"><h2>🧠 Motor de treino</h2><span class="badge" id="engineStatus">Ativo</span></div>
+  <p class="muted">O app cruza prontidão, posição, objetivo, carga recente e histórico para definir a ênfase do treino.</p>
+  <div class="progress"><span id="engineBar" style="width:75%"></span></div>
+  <div class="chips" id="engineReasons"></div>
+</div>
+
+<div class="section">
+<div class="sectionhead"><h2>📅 Microciclo</h2><button class="secondary" onclick="generateWeek()">Gerar semana</button></div>
+<div id="weekPlan" class="list"></div>
+</div>
+
+<div class="section">
+<div class="sectionhead"><h2>🏟️ Jogos</h2><button class="secondary" onclick="addMatch()">+ Jogo</button></div>
+<div id="matchList" class="list"></div>
+</div>
+
+<div class="section">
+<div class="sectionhead"><h2>🧪 Testes de campo</h2><button class="secondary" onclick="addTest()">+ Registrar</button></div>
+<div id="testList" class="list"></div>
+</div>
+
+<div class="section">
+<div class="sectionhead"><h2>📈 Evolução por fundamento</h2></div>
+<div class="grid" id="skillGrid"></div>
+</div>
+</section>
+
+<script>
+/* V2 state */
+data.matches=data.matches||[];
+data.tests=data.tests||[];
+data.week=data.week||[];
+
+function showV2(){
+  document.querySelectorAll('.page').forEach(x=>x.classList.remove('active'));
+  document.getElementById('pro').classList.add('active');
+  document.querySelectorAll('.nav button').forEach(x=>x.classList.remove('active'));
+  renderV2();
+}
+function skillScores(){
+  const s={Finalização:6,Passe:6,Condução:6,Velocidade:6,Agilidade:6,Defesa:6,Decisão:6};
+  const by={};
+  data.sessions.forEach(x=>{by[x.goal]=(by[x.goal]||[]).concat(x.rpe)});
+  Object.keys(s).forEach(k=>{
+    let vals=by[k]||by[Object.keys(by).find(z=>z.toLowerCase().includes(k.toLowerCase().split(' ')[0]))];
+    if(vals?.length) s[k]=Math.min(10,5+vals.reduce((a,b)=>a+b,0)/vals.length*.5);
+  });
+  return s;
+}
+function renderV2(){
+  const p=data.profile,r=readiness();
+  document.getElementById('engineStatus').textContent=r>=75?'Pronto':r>=55?'Moderado':'Recuperar';
+  document.getElementById('engineBar').style.width=r+'%';
+  let reasons=[];
+  reasons.push('Prontidão '+r+'%');
+  reasons.push('Energia '+p.energy+'/10');
+  reasons.push('Sono '+p.sleep+'h');
+  reasons.push('Dor '+p.pain+'/10');
+  document.getElementById('engineReasons').innerHTML=reasons.map(x=>`<span class="chip">${x}</span>`).join('');
+  renderWeek();renderMatches();renderTests();
+  const ss=skillScores();
+  document.getElementById('skillGrid').innerHTML=Object.entries(ss).map(([k,v])=>`<div class="card"><div class="muted">${k}</div><div class="metric">${v.toFixed(1)}</div><div class="progress"><span style="width:${v*10}%"></span></div></div>`).join('');
+}
+function generateWeek(){
+  const recovery=readiness()<55;
+  const pos=data.profile.position;
+  const seq=recovery?
+    ['Recuperação ativa','Condução e domínio','Passe e tomada de decisão','Recuperação ativa','Finalização','Agilidade e mudança de direção','Recuperação ativa']:
+    ['Condução e domínio','Velocidade e aceleração','Finalização','Agilidade e mudança de direção','Passe e tomada de decisão','Resistência específica','Recuperação ativa'];
+  data.week=seq.map((goal,i)=>({day:['Dom','Seg','Ter','Qua','Qui','Sex','Sáb'][i],goal,load:recovery&&i%3===0?'Leve':i===1||i===3?'Alta':'Moderada'}));
+  save();renderV2();
+}
+function renderWeek(){
+  if(!data.week.length) generateWeek();
+  document.getElementById('weekPlan').innerHTML=data.week.map((x,i)=>`<div class="exercise"><div class="num">${x.day}</div><div><strong>${x.goal}</strong><div class="tag">${i===new Date().getDay()?'HOJE · ':''}${data.profile.position} · campo</div></div><div class="right"><b>${x.load}</b></div></div>`).join('');
+}
+function addMatch(){
+  const date=prompt('Data do jogo (DD/MM/AAAA):',new Date().toLocaleDateString('pt-BR')); if(!date)return;
+  const mins=+(prompt('Minutos jogados:',90)||90), rpe=+(prompt('RPE do jogo 1–10:',7)||7);
+  const result=prompt('Resultado/observação:','')||'';
+  data.matches.push({date,mins,rpe,load:mins*rpe,result});save();renderV2();
+}
+function renderMatches(){
+  document.getElementById('matchList').innerHTML=data.matches.length?data.matches.slice().reverse().slice(0,8).map(m=>`<div class="exercise"><div class="num">⚽</div><div><strong>${m.date}</strong><div class="tag">${m.mins} min · RPE ${m.rpe} · ${m.result}</div></div><div class="right"><b>${m.load}</b><div class="tag">UA</div></div></div>`).join(''):'<div class="empty">Nenhum jogo registrado.</div>';
+}
+function addTest(){
+  const type=prompt('Teste: 10m, 20m, 5-10-5, salto, Yo-Yo ou outro?','10m');if(!type)return;
+  const val=prompt('Resultado (ex.: 1.82 s / 34 cm):');if(!val)return;
+  data.tests.push({date:new Date().toLocaleDateString('pt-BR'),type,value:val});save();renderV2();
+}
+function renderTests(){
+  document.getElementById('testList').innerHTML=data.tests.length?data.tests.slice().reverse().slice(0,8).map(t=>`<div class="exercise"><div class="num">🧪</div><div><strong>${t.type}</strong><div class="tag">${t.date}</div></div><div class="right"><b>${t.value}</b></div></div>`).join(''):'<div class="empty">Registre seu primeiro teste.</div>';
+}
+</script>
+</body></html>
