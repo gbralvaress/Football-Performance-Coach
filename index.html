@@ -50,9 +50,9 @@ function readiness(d){const c=lastCheck(d);if(!c)return{score:70,label:"Faça se
 function rec(d){const r=readiness(d),p=d.profile.position.toLowerCase();let focus="Velocidade + aceleração",mins=55,rpe=7;if(p.includes("lateral"))focus="Aceleração + mudança de direção + cruzamento";else if(p.includes("meia"))focus="Passe + tomada de decisão + aceleração";else if(p.includes("volante"))focus="Cobertura + passe sob pressão + resistência";else if(p.includes("ponta"))focus="1x1 + aceleração + finalização";if(r.score<55){focus="Recuperação ativa + mobilidade";mins=25;rpe=3}else if(r.score<70){mins=40;rpe=5}return{focus,mins,rpe}}
 function app(){if(!sess())return loginUI();const u=sess();let d=data();document.body.innerHTML=`<div class="app">
 <header class="top"><div class="brand">FPC <em>PRO</em><small>ATHLETE PERFORMANCE SYSTEM</small></div><div class="user"><span class="hide-mobile">${esc(u.name)}</span><div class="avatar">${esc((u.name||"A")[0].toUpperCase())}</div></div></header>
-<nav class="tabs"><button class="tab active" onclick="page('dashboard',this)">Dashboard</button><button class="tab" onclick="page('training',this)">Treino</button><button class="tab" onclick="page('calendar',this)">Agenda</button><button class="tab" onclick="page('evolution',this)">Evolução</button><button class="tab" onclick="page('profile',this)">Perfil</button><button class="tab" onclick="page('account',this)">Conta</button></nav>
+<nav class="tabs"><button class="tab active" onclick="page('dashboard',this)">Dashboard</button><button class="tab" onclick="page('checkin',this)">❤️ Check-in</button><button class="tab" onclick="page('training',this)">Treino</button><button class="tab" onclick="page('games',this)">⚽ Jogos</button><button class="tab" onclick="page('stats',this)">📊 Estatísticas</button><button class="tab" onclick="page('calendar',this)">Agenda</button><button class="tab" onclick="page('evolution',this)">Evolução</button><button class="tab" onclick="page('profile',this)">Perfil</button><button class="tab" onclick="page('account',this)">Conta</button></nav>
 <main id="page"></main><div class="footer">FPC PRO V5 · Athlete Edition · Performance • Load • Recovery</div></div>`;dashboard()}
-function page(which,btn){document.querySelectorAll(".tab").forEach(x=>x.classList.remove("active"));if(btn)btn.classList.add("active");({dashboard,training,calendar,evolution,profile,account}[which])()}
+function page(which,btn){document.querySelectorAll(".tab").forEach(x=>x.classList.remove("active"));if(btn)btn.classList.add("active");({dashboard,training,checkin:checkinPage,games:gamesPage,stats:statsPage,calendar,evolution,profile,account}[which])()}
 function dashboard(){
 const d=data(),r=readiness(d),rc=rec(d),c=lastCheck(d),u=sess(),week=load7(d),next=d.events.filter(e=>e.date>=today()).sort((a,b)=>a.date.localeCompare(b.date))[0];
 $("page").innerHTML=`<section class="card hero"><div class="eyebrow">DAILY PERFORMANCE STATUS</div><h1>Olá, ${esc(u.name.split(" ")[0])}.</h1><p class="muted">Seu plano de hoje foi ajustado pelo seu estado de recuperação.</p><div class="grid3"><div class="kpi"><span class="tag">Readiness</span><b>${r.score}%</b><span class="badge ${r.tone}">${r.label}</span></div><div class="kpi"><span class="tag">Carga 7D</span><b>${Math.round(week)}</b><span class="unit">AU · sessão × RPE</span></div><div class="kpi"><span class="tag">Próximo evento</span><b>${next?fmt(next.date):"—"}</b><span class="unit">${next?esc(next.title):"Sem evento"}</span></div></div></section>
@@ -84,6 +84,123 @@ $("page").innerHTML=`<div class="card"><div class="between"><div><div class="eye
 <div class="grid2">${days.map(x=>{let ev=d.events.filter(e=>e.date===x);return `<div class="item"><div class="between"><b>${fmt(x)}</b><span class="tag">${x===today()?"HOJE":""}</span></div>${ev.length?ev.map(e=>`<div style="margin-top:8px"><span class="badge ${e.type==="match"?"warn":e.type==="recovery"?"":"good"}">${e.type==="match"?"⚽ JOGO":e.type==="recovery"?"🧘 RECUPERAÇÃO":"🏋️ TREINO"}</span> <b>${esc(e.title)}</b></div>`).join(""):"<div class='muted small' style='margin-top:8px'>Sem evento</div>"}</div>`}).join("")}</div>`;
 }
 function addEvent(){const d=data(),date=prompt("Data (AAAA-MM-DD)",today());if(!date)return;const type=prompt("Tipo: training / match / recovery","training");const title=prompt("Nome do evento",type==="match"?"Jogo":"Treino");if(!title)return;d.events.push({id:uid(),date,type,title});save(d);calendar()}
+
+
+
+function readinessCalc(){
+const d=data(), c=(d.checkins||[]).find(x=>x.date===today()), m=d.matches||[], s=d.sessions||[];
+if(!c) return null;
+const sleep=Math.min(10,(Number(c.sleep)||0)/8*10);
+const energy=Number(c.energy)||0, pain=Number(c.pain)||0, mood=Number(c.mood)||0, disp=Number(c.readiness)||0;
+let score=(sleep*.20+energy*.25+mood*.15+disp*.25+(10-pain)*.15)*10;
+const recent=[...s,...m.map(g=>({date:g.date,minutes:g.minutes,rpe:g.rpe,load:g.load||((g.minutes||0)*(g.rpe||0))}))].filter(x=>x.date).sort((a,b)=>String(b.date).localeCompare(String(a.date)));
+const last3=recent.filter(x=>{const dt=new Date(x.date+"T12:00:00"), now=new Date(); return (now-dt)/86400000<=3;});
+const load3=last3.reduce((a,x)=>a+(Number(x.load)||((Number(x.minutes)||0)*(Number(x.rpe)||0))),0);
+if(load3>1200) score-=8; else if(load3>850) score-=4;
+score=Math.max(0,Math.min(100,Math.round(score)));
+let zone=score>=80?"green":score>=60?"yellow":"red";
+if(pain>=6)zone="red";
+return {score,zone,load3};
+}
+function adaptiveWorkout(){
+const r=readinessCalc(); if(!r) return null;
+if(r.zone==="green") return {title:"Performance — Alta intensidade",desc:"Seu estado permite uma sessão completa de performance.",duration:"60–75 min",focus:["Aceleração e velocidade","Mudança de direção","Força e potência","Técnica com intensidade"],color:"good"};
+if(r.zone==="yellow") return {title:"Performance — Intensidade moderada",desc:"Boa condição, mas hoje vale controlar o volume e a intensidade.",duration:"45–60 min",focus:["Mobilidade e ativação","Força técnica","Agilidade controlada","Técnica com bola"],color:""};
+return {title:"Recovery — Recuperação ativa",desc:"Prioridade hoje: recuperar e manter qualidade de movimento.",duration:"25–40 min",focus:["Mobilidade","Ativação leve","Core de baixa intensidade","Técnica leve / recuperação"],color:""};
+}
+function checkinPage(){
+const d=data(), c=d.checkins||[], t=today(), existing=c.find(x=>x.date===t), r=existing?readinessCalc():null, w=r?adaptiveWorkout():null;
+$("page").innerHTML=`<div class="card hero"><div class="eyebrow">DAILY READINESS</div><div class="between"><div><h1>Check-in diário</h1><p class="muted">Registre como você está hoje e receba uma recomendação para o dia.</p></div><span class="badge ${existing?"good":""}">${existing?"✓ Respondido hoje":"Pendente"}</span></div></div>
+${r?`<div class="card"><div class="between"><div><div class="eyebrow">PRONTIDÃO</div><h1 style="margin:2px 0">${r.score}%</h1><p class="muted">${r.zone==="green"?"🟢 Pronto para uma sessão forte.":r.zone==="yellow"?"🟡 Treine, mas controle a intensidade.":"🔴 Priorize recuperação hoje."}</p></div><div class="kpi"><span class="tag">Carga recente</span><b>${r.load3}</b><span class="unit">ÚLTIMOS 3 DIAS</span></div></div></div>
+<div class="card"><div class="eyebrow">TREINO RECOMENDADO</div><div class="between"><h2 class="section-title">${w.title}</h2><span class="badge ${w.color}">${w.duration}</span></div><p class="muted">${w.desc}</p><div class="list">${w.focus.map((x,i)=>`<div class="item"><b>${i+1}. ${x}</b></div>`).join("")}</div><button class="btn" style="margin-top:12px" onclick="page('training')">Ir para Treinar →</button></div>`:""}
+<div class="card"><div class="grid2">
+<div class="field"><label>😴 SONO · HORAS</label><input id="ciSleep" type="number" step=".1" min="0" max="24" value="${existing?.sleep??""}" placeholder="Ex.: 8"></div>
+<div class="field"><label>⚡ ENERGIA · 0–10</label><input id="ciEnergy" type="number" min="0" max="10" value="${existing?.energy??""}" placeholder="Como você se sente?"></div>
+<div class="field"><label>🦵 DOR · 0–10</label><input id="ciPain" type="number" min="0" max="10" value="${existing?.pain??0}"></div>
+<div class="field"><label>🧠 HUMOR · 0–10</label><input id="ciMood" type="number" min="0" max="10" value="${existing?.mood??""}" placeholder="Como está sua cabeça?"></div>
+<div class="field"><label>💪 DISPOSIÇÃO · 0–10</label><input id="ciReadiness" type="number" min="0" max="10" value="${existing?.readiness??""}" placeholder="Pronto para treinar?"></div>
+<div class="field"><label>📝 OBSERVAÇÃO</label><input id="ciNotes" value="${esc(existing?.notes||"")}" placeholder="Algo importante hoje?"></div>
+</div>
+<div class="muted small" style="margin-top:12px">Depois de respondido hoje, o app não abre o check-in automaticamente novamente até amanhã.</div>
+<button class="btn" style="margin-top:12px" onclick="saveCheckin()">${existing?"Atualizar check-in":"Salvar check-in de hoje"}</button></div>`;
+}
+function saveCheckin(){
+const d=data(); d.checkins=d.checkins||[]; const t=today();
+const n=id=>Math.min(10,Math.max(0,Number($(id).value)||0));
+const obj={date:t,sleep:Math.max(0,Number($("ciSleep").value)||0),energy:n("ciEnergy"),pain:n("ciPain"),mood:n("ciMood"),readiness:n("ciReadiness"),notes:$("ciNotes").value.trim()};
+const i=d.checkins.findIndex(x=>x.date===t); if(i>=0)d.checkins[i]=obj; else d.checkins.push(obj);
+save(d); if(shouldOpenDailyCheckin()){checkinPage()}else{dashboard();}
+}
+function shouldOpenDailyCheckin(){const d=data(); return !(d.checkins||[]).some(x=>x.date===today());}
+function gamesPage(){
+const d=data(), m=d.matches||[];
+$("page").innerHTML=`<div class="card hero"><div class="eyebrow">MATCH CENTER</div><div class="between"><div><h1>Jogos</h1><p class="muted">Registre cada partida e construa seu histórico de performance.</p></div><span class="badge good">${m.length} ${m.length===1?"jogo":"jogos"}</span></div></div>
+<div class="card"><div class="between"><h2 class="section-title">Registrar jogo</h2><span class="tag">HISTÓRICO DO ATLETA</span></div>
+<div class="grid2">
+<div class="field"><label>ADVERSÁRIO</label><input id="gmOpp" placeholder="Ex.: Palmeiras"></div>
+<div class="field"><label>COMPETIÇÃO</label><input id="gmComp" placeholder="Ex.: Campeonato"></div>
+<div class="field"><label>DATA</label><input id="gmDate" type="date" value="${today()}"></div>
+<div class="field"><label>POSIÇÃO</label><select id="gmPos">${["Meia / Lateral","Volante","Lateral","Ponta","Fixo","Zagueiro","Atacante"].map(x=>`<option>${x}</option>`).join("")}</select></div>
+<div class="field"><label>MINUTOS</label><input id="gmMin" type="number" min="0" max="180" value="90"></div>
+<div class="field"><label>NOTA · 0–10</label><input id="gmRating" type="number" step=".1" min="0" max="10" value="7"></div>
+<div class="field"><label>RPE · 0–10</label><input id="gmRpe" type="number" min="0" max="10" value="7"></div>
+<div class="field"><label>DOR · 0–10</label><input id="gmPain" type="number" min="0" max="10" value="0"></div>
+</div>
+<div class="grid4" style="margin-top:11px">
+<div class="field"><label>GOLS</label><input id="gmGoals" type="number" min="0" value="0"></div>
+<div class="field"><label>ASSISTÊNCIAS</label><input id="gmAssists" type="number" min="0" value="0"></div>
+<div class="field"><label>FINALIZAÇÕES</label><input id="gmShots" type="number" min="0" value="0"></div>
+<div class="field"><label>PASSES-CHAVE</label><input id="gmKey" type="number" min="0" value="0"></div>
+<div class="field"><label>DESARMES</label><input id="gmTackles" type="number" min="0" value="0"></div>
+<div class="field"><label>INTERCEPTAÇÕES</label><input id="gmInter" type="number" min="0" value="0"></div>
+<div class="field"><label>DUELos GANHOS</label><input id="gmDuels" type="number" min="0" value="0"></div>
+<div class="field"><label>PERDAS DE BOLA</label><input id="gmLoss" type="number" min="0" value="0"></div>
+</div>
+<div class="field" style="margin-top:11px"><label>OBSERVAÇÕES</label><textarea id="gmNotes" rows="3" placeholder="Pontos positivos, pontos a desenvolver, contexto do jogo..."></textarea></div>
+<button class="btn" style="margin-top:12px" onclick="saveGame()">+ Salvar jogo no histórico</button></div>
+<div class="card"><div class="between"><h2 class="section-title">Histórico de partidas</h2><span class="muted small">Mais recentes primeiro</span></div>
+<div class="list">${m.slice().reverse().map(g=>`<div class="item"><div class="between"><div><b>⚽ ${esc(g.opponent||"Adversário")}</b><span class="badge" style="margin-left:6px">${esc(g.competition||"Jogo")}</span></div><b>${Number(g.rating||0).toFixed(1)}</b></div><div class="muted small" style="margin-top:7px">${fmt(g.date)} · ${g.minutes||0} min · ${g.goals||0} gol${g.goals==1?"":"s"} · ${g.assists||0} assist.</div><div class="muted small" style="margin-top:5px">${esc(g.position||"")} · RPE ${g.rpe||0}${g.notes?` · ${esc(g.notes)}`:""}</div></div>`).join("")||"<div class='muted'>Nenhum jogo registrado ainda. Registre a primeira partida acima.</div>"}</div></div>`;
+}
+function saveGame(){
+const d=data(); d.matches=d.matches||[];
+const n=id=>Math.max(0,Number($(id).value)||0);
+const opponent=$("gmOpp").value.trim(); if(!opponent){alert("Informe o adversário.");return;}
+const g={id:uid(),date:$("gmDate").value||today(),opponent,competition:$("gmComp").value.trim()||"Jogo",position:$("gmPos").value,minutes:n("gmMin"),rating:Math.min(10,n("gmRating")),rpe:Math.min(10,n("gmRpe")),pain:Math.min(10,n("gmPain")),goals:n("gmGoals"),assists:n("gmAssists"),shots:n("gmShots"),keyPasses:n("gmKey"),tackles:n("gmTackles"),interceptions:n("gmInter"),duelsWon:n("gmDuels"),turnovers:n("gmLoss"),notes:$("gmNotes").value.trim()};
+g.load=Math.round(g.minutes*g.rpe);
+d.matches.push(g);
+d.sessions.push({id:uid(),date:g.date,focus:"Jogo · "+g.opponent,minutes:g.minutes,rpe:g.rpe,load:g.load});
+save(d); gamesPage();
+}
+function statsPage(){
+const d=data(),m=(d.matches||[]), total=x=>m.reduce((a,g)=>a+(Number(g[x])||0),0);
+const games=m.length, mins=total("minutes"), goals=total("goals"), assists=total("assists"), shots=total("shots");
+const avgRating=games?(m.reduce((a,g)=>a+(Number(g.rating)||0),0)/games):0;
+const avgRpe=games?(m.reduce((a,g)=>a+(Number(g.rpe)||0),0)/games):0;
+const avgMin=games?mins/games:0, goalInvolvement=goals+assists;
+$("page").innerHTML=`<div class="card hero"><div class="eyebrow">PERFORMANCE ANALYTICS</div><h1>Estatísticas</h1><p class="muted">Seu histórico de jogos transformado em indicadores de performance.</p></div>
+<div class="grid4">
+<div class="kpi"><span class="tag">Jogos</span><b>${games}</b><span class="unit">PARTIDAS</span></div>
+<div class="kpi"><span class="tag">Minutos</span><b>${mins}</b><span class="unit">EM CAMPO</span></div>
+<div class="kpi"><span class="tag">Nota média</span><b>${avgRating.toFixed(1)}</b><span class="unit">/ 10</span></div>
+<div class="kpi"><span class="tag">G+A</span><b>${goalInvolvement}</b><span class="unit">${goals} G · ${assists} A</span></div>
+</div>
+<div class="grid3">
+<div class="kpi"><span class="tag">Finalizações</span><b>${shots}</b></div>
+<div class="kpi"><span class="tag">RPE médio</span><b>${avgRpe.toFixed(1)}</b><span class="unit">ESFORÇO</span></div>
+<div class="kpi"><span class="tag">Min / jogo</span><b>${avgMin.toFixed(0)}</b><span class="unit">MÉDIA</span></div>
+</div>
+<div class="card"><div class="between"><h2 class="section-title">Indicadores técnicos</h2><span class="tag">ACUMULADO</span></div>
+<div class="grid4">
+<div class="kpi"><span class="tag">Desarmes</span><b>${total("tackles")}</b></div>
+<div class="kpi"><span class="tag">Interceptações</span><b>${total("interceptions")}</b></div>
+<div class="kpi"><span class="tag">Duelos ganhos</span><b>${total("duelsWon")}</b></div>
+<div class="kpi"><span class="tag">Passes-chave</span><b>${total("keyPasses")}</b></div>
+</div></div>
+<div class="card"><div class="between"><h2 class="section-title">Evolução por jogo</h2><span class="muted small">Últimas 10 partidas</span></div>
+${m.slice(-10).map((g,i)=>`<div style="margin:14px 0"><div class="between"><span><b>${esc(g.opponent||"Adversário")}</b> <span class="muted small">${fmt(g.date)}</span></span><b>${Number(g.rating||0).toFixed(1)}</b></div><div class="bar" style="margin-top:7px"><span style="width:${Math.min(100,Number(g.rating||0)*10)}%"></span></div><div class="muted small" style="margin-top:4px">${g.minutes||0} min · ${g.goals||0} G · ${g.assists||0} A · RPE ${g.rpe||0}</div></div>`).reverse().join("")||"<div class='muted'>Registre seus jogos para começar a construir sua evolução.</div>"}</div>
+<div class="card"><div class="between"><h2 class="section-title">Histórico completo</h2><button class="btn secondary" onclick="page('games')">Registrar jogo</button></div>
+<div class="list">${m.slice().reverse().map(g=>`<div class="item"><div class="between"><b>${esc(g.opponent||"Adversário")}</b><span class="badge good">Nota ${Number(g.rating||0).toFixed(1)}</span></div><div class="muted small" style="margin-top:6px">${fmt(g.date)} · ${esc(g.competition||"Jogo")} · ${g.minutes||0} min</div></div>`).join("")||"<div class='muted'>Sem histórico ainda.</div>"}</div></div>`;
+}
 function evolution(){
 const d=data(),sessions=d.sessions.slice(-12),loads=sessions.map(x=>x.load),max=Math.max(1,...loads);
 $("page").innerHTML=`<div class="card"><div class="eyebrow">PERFORMANCE LAB</div><h1>Evolução</h1><p class="muted">Acompanhe carga, habilidades e testes físicos ao longo do tempo.</p></div>
