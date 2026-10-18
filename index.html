@@ -46,12 +46,17 @@ function logout(){localStorage.removeItem(SESSION);loginUI("login","OK Você sai
 function recentSessions(d,n=7){return d.sessions.slice(-n)}
 function load7(d){return recentSessions(d).reduce((a,s)=>a+(Number(s.load)||Number(s.minutes||0)*Number(s.rpe||0)),0)}
 function lastCheck(d){return d.checkins[d.checkins.length-1]||null}
-function readiness(d){const c=lastCheck(d);if(!c)return{score:70,label:"Faça seu check-in",tone:"warn"};let s=100;s+=(+c.sleep-8)*5;s+=(+c.energy-7)*5;s-=(+c.pain)*8;s-=(+c.fatigue)*4;s-=Math.min(20,load7(d)/400*10);if(c.match==="yes")s-=8;s=Math.round(Math.max(25,Math.min(100,s)));return{score:s,label:s>=85?"PRONTO · ALTA INTENSIDADE":s>=70?"PRONTO · TREINO NORMAL":s>=55?"ATENÇÃO · REDUZIR CARGA":"RECUPERAÇÃO · BAIXA CARGA",tone:s>=85?"good":s>=55?"warn":"bad"}}
-function rec(d){const r=readiness(d),p=d.profile.position.toLowerCase();let focus="Velocidade + aceleração",mins=55,rpe=7;if(p.includes("lateral"))focus="Aceleração + mudança de direção + cruzamento";else if(p.includes("meia"))focus="Passe + tomada de decisão + aceleração";else if(p.includes("volante"))focus="Cobertura + passe sob pressão + resistência";else if(p.includes("ponta"))focus="1x1 + aceleração + finalização";if(r.score<55){focus="Recuperação ativa + mobilidade";mins=25;rpe=3}else if(r.score<70){mins=40;rpe=5}return{focus,mins,rpe}}
+function readiness(d){const x=readinessCalc();if(!x)return{score:70,label:"Faça seu check-in",tone:"warn"};return{score:x.score,label:x.score>=85?"PRONTO · ALTA INTENSIDADE":x.score>=70?"PRONTO · TREINO NORMAL":x.score>=55?"ATENÇÃO · REDUZIR CARGA":"RECUPERAÇÃO · BAIXA CARGA",tone:x.score>=85?"good":x.score>=55?"warn":"bad"}}
+function rec(d){
+const w=adaptiveWorkout(),r=readiness(d); let mins=60,rpe=7;
+if(r.score<55){mins=30;rpe=3}else if(r.score<70){mins=45;rpe=5}else if(r.score<80){mins=55;rpe=6}
+if(w){const m=String(w.duration).match(/(\d+)[–-](\d+)/);if(m)mins=Math.round((Number(m[1])+Number(m[2]))/2);rpe=w.targetRpe||rpe;}
+return{focus:w?w.title:"Sessão adaptativa",mins,rpe,aiConfidence:w?.aiConfidence||0}
+}
 function app(){if(!sess())return loginUI();const u=sess();let d=data();document.body.innerHTML=`<div class="app">
 <header class="top"><div class="brand">FPC <em>PRO</em><small>ATHLETE PERFORMANCE SYSTEM</small></div><div class="user"><span class="hide-mobile">${esc(u.name)}</span><div class="avatar">${esc((u.name||"A")[0].toUpperCase())}</div></div></header>
 <nav class="tabs"><button class="tab active" onclick="page('dashboard',this)">Dashboard</button><button class="tab" onclick="page('checkin',this)">❤️ Check-in</button><button class="tab" onclick="page('training',this)">Treino</button><button class="tab" onclick="page('games',this)">⚽ Jogos</button><button class="tab" onclick="page('stats',this)">📊 Estatísticas</button><button class="tab" onclick="page('calendar',this)">Agenda</button><button class="tab" onclick="page('evolution',this)">Evolução</button><button class="tab" onclick="page('profile',this)">Perfil</button><button class="tab" onclick="page('account',this)">Conta</button></nav>
-<main id="page"></main><div class="footer">FPC PRO V5 · Athlete Edition · Performance • Load • Recovery</div></div>`;dashboard()}
+<main id="page"><button class="btn" onclick="weeklyReportPage()">📊 Relatório semanal</button></main><div class="footer">FPC PRO V10 · Athlete Edition · Performance • Load • Recovery</div></div>`;dashboard()}
 function page(which,btn){document.querySelectorAll(".tab").forEach(x=>x.classList.remove("active"));if(btn)btn.classList.add("active");({dashboard,training,checkin:checkinPage,games:gamesPage,stats:statsPage,calendar,evolution,profile,account}[which])()}
 function dashboard(){
 const d=data(),r=readiness(d),rc=rec(d),c=lastCheck(d),u=sess(),week=load7(d),next=d.events.filter(e=>e.date>=today()).sort((a,b)=>a.date.localeCompare(b.date))[0];
@@ -62,6 +67,11 @@ $("page").innerHTML=`<section class="card hero"><div class="eyebrow">DAILY PERFO
 </div><div>
 <div class="card"><h2 class="section-title">Perfil de jogo</h2><div class="item"><div class="between"><b>${esc(d.profile.position)}</b><span class="badge">#${esc(d.profile.number)}</span></div><div class="muted small" style="margin-top:5px">Pé ${esc(d.profile.foot)} · foco: ${esc(d.profile.goal)}</div></div></div>
 <div class="card"><h2 class="section-title">Última sessão</h2>${d.sessions.length?(()=>{let s=d.sessions[d.sessions.length-1];return `<div class="item"><b>${esc(s.focus)}</b><br><span class="muted">${s.minutes} min · RPE ${s.rpe} · ${s.load} AU</span></div>`})():"<div class='muted'>Nenhuma sessão ainda.</div>"}</div>
+<div class="card"><div class="between"><h2 class="section-title">🧠 Performance Intelligence</h2><span class="badge good">ADAPTATIVO</span></div>${(()=>{const i=historyIntel(),ratio=i.ratio;const trend=ratio>1.25?"carga subindo":ratio<.75&&i.acute>0?"carga baixa":"carga estável";const text=ratio>1.35?"O sistema reduziu o volume porque sua carga recente está acima do padrão.":ratio>1.15?"O sistema está controlando o volume para evitar uma subida rápida de carga.":"Sua carga está dentro de uma faixa controlada. O histórico está sendo usado para ajustar a sessão.";return `<div class="grid3"><div class="kpi"><span class="tag">Carga 7D</span><b>${Math.round(i.acute)}</b><span class="unit">AU</span></div><div class="kpi"><span class="tag">Tendência</span><b>${trend}</b></div><div class="kpi"><span class="tag">Padrão</span><b>${i.chronicWeekly?Math.round(i.chronicWeekly):"—"}</b><span class="unit">AU/SEMANA</span></div></div><p class="muted small" style="margin-top:10px">💡 ${text}</p>`})()}</div>
+<div class="card"><div class="between"><h2 class="section-title">🤖 FPC AI Learning</h2><span class="badge good">${aiLearning().confidence}% confiança</span></div>
+<div class="grid3"><div class="kpi"><span class="tag">Modo</span><b>${aiLearning().label}</b></div><div class="kpi"><span class="tag">Amostras</span><b>${aiLearning().samples}</b><span class="unit">SESSÕES</span></div><div class="kpi"><span class="tag">Ajuste pessoal</span><b>${Math.round(aiLearning().factor*100)}%</b><span class="unit">DO PADRÃO</span></div></div>
+<p class="muted small" style="margin-top:10px">🧠 ${aiLearning().reason}</p>
+<p class="muted small">A recomendação é recalibrada pela sua resposta real: qualidade, RPE e dor pós-treino.</p></div>
 <div class="card"><h2 class="section-title">Conquistas</h2><div class="achievement"><span class="ico">🏅</span><div><b>${d.badges.length} badges</b><br><span class="muted small">${badgeText(d)}</span></div></div></div>
 </div></div>`;
 }
@@ -70,14 +80,22 @@ function checkin(){const u=sess(),d=data(),o={date:today(),sleep:+$("sleep").val
 let timer=0,interval=null;
 function training(){
 const d=data(),r=readiness(d),rc=rec(d),blocks=[["Ativação + mobilidade",7],["Aceleração curta",8],["Mudança de direção",8],["Técnica específica",12],["Tomada de decisão / jogo reduzido",12],["Volta à calma",6]];
-$("page").innerHTML=`<div class="card hero"><div class="eyebrow">TRAINER MODE</div><h1>${esc(rc.focus)}</h1><div class="row"><span class="badge ${r.tone}">READINESS ${r.score}%</span><span class="badge">${rc.mins} MIN</span><span class="badge">RPE ${rc.rpe}</span></div><div class="timer" id="timer">00:00</div><div class="row" style="justify-content:center"><button class="btn" onclick="startTimer()">Iniciar</button><button class="btn secondary" onclick="resetTimer()">Zerar</button></div></div>
+$("page").innerHTML=`<div class="card hero"><div class="eyebrow">TRAINER MODE</div><h1>${esc(rc.focus)}</h1><div class="row"><span class="badge ${r.tone}">READINESS ${r.score}%</span><span class="badge">${rc.mins} MIN</span><span class="badge">RPE ${rc.rpe}</span><span class="badge good">AI ${rc.aiConfidence}%</span></div><div class="timer" id="timer">00:00</div><div class="row" style="justify-content:center"><button class="btn" onclick="startTimer()">Iniciar</button><button class="btn secondary" onclick="resetTimer()">Zerar</button></div></div>
 <div class="card"><div class="between"><h2 class="section-title">Sessão de hoje</h2><span class="muted small">marque os blocos realizados</span></div><div class="list">${blocks.map((x,i)=>`<label class="item exercise"><span><input class="check" type="checkbox" id="b${i}"> ${x[0]}</span><b>${x[1]}'</b></label>`).join("")}</div><button class="btn" style="margin-top:12px" onclick="finishSession()">Finalizar sessão</button></div>
 <div class="card"><h2 class="section-title">Ajuste automático</h2><div class="notice">${r.score>=85?"Seu estado permite manter intensidade alta.":r.score>=70?"Mantenha a sessão planejada e monitore RPE.":r.score>=55?"Reduza volume e priorize qualidade técnica.":"Hoje o foco deve ser recuperação e baixa carga."}</div></div>`;
 }
 function startTimer(){clearInterval(interval);interval=setInterval(()=>{timer++;if($("timer"))$("timer").textContent=new Date(timer*1000).toISOString().slice(14,19)},1000)}
 function resetTimer(){clearInterval(interval);timer=0;if($("timer"))$("timer").textContent="00:00"}
-function finishSession(){const d=data(),rc=rec(d),mins=+prompt("Minutos realizados",rc.mins);if(!mins)return;const rpe=+prompt("RPE da sessão (0–10)",rc.rpe);if(isNaN(rpe))return;const s={id:uid(),date:today(),focus:rc.focus,minutes:mins,rpe,load:mins*rpe};d.sessions.push(s);for(const k of Object.keys(d.skills))if(Math.random()<.35)d.skills[k]=Math.min(100,d.skills[k]+1);if(d.sessions.length===1&&!d.badges.includes("first"))d.badges.push("first");if(d.sessions.length>=10&&!d.badges.includes("10"))d.badges.push("10");if(d.sessions.length>=20&&!d.badges.includes("20"))d.badges.push("20");save(d);resetTimer();alert("Sessão salva · "+s.load+" AU");dashboard()}
-function quickSession(){const d=data(),rc=rec(d),mins=+prompt("Minutos",rc.mins),rpe=+prompt("RPE",rc.rpe);if(!mins||isNaN(rpe))return;d.sessions.push({id:uid(),date:today(),focus:rc.focus,minutes:mins,rpe,load:mins*rpe});save(d);dashboard()}
+function finishSession(){const d=data(),rc=rec(d),plan=adaptiveWorkout(),mins=+prompt("Minutos realizados",rc.mins);if(!mins)return;const rpe=+prompt("RPE da sessão (0–10)",rc.rpe);if(isNaN(rpe))return;const quality=+prompt("Como foi a qualidade da sessão? 0–10",8);const postPain=+prompt("Dor após a sessão 0–10",0);const s={id:uid(),date:today(),focus:rc.focus,minutes:mins,rpe,load:Math.round(mins*rpe),plannedMinutes:rc.mins,plannedRpe:rc.rpe,plannedScore:plan?.score||readiness(d).score,quality:isNaN(quality)?8:Math.max(0,Math.min(10,quality)),postPain:isNaN(postPain)?0:Math.max(0,Math.min(10,postPain))};d.sessions.push(s);d.feedback=d.feedback||[];d.feedback.push({sessionId:s.id,date:s.date,planned:{minutes:rc.mins,rpe:rc.rpe},actual:{minutes:mins,rpe,quality:s.quality,postPain:s.postPain},gap:{minutes:mins-rc.mins,rpe:rpe-rc.rpe}});for(const k of Object.keys(d.skills))if(Math.random()<.35)d.skills[k]=Math.min(100,d.skills[k]+1);if(d.sessions.length===1&&!d.badges.includes("first"))d.badges.push("first");if(d.sessions.length>=10&&!d.badges.includes("10"))d.badges.push("10");if(d.sessions.length>=20&&!d.badges.includes("20"))d.badges.push("20");save(d);resetTimer();alert("Sessão salva · "+s.load+" AU");dashboard()}
+function quickSession(){
+const d=data(),rc=rec(d),mins=+prompt("Minutos",rc.mins),rpe=+prompt("RPE",rc.rpe);
+if(!mins||isNaN(rpe))return;
+const quality=+prompt("Qualidade da sessão 0–10",8),postPain=+prompt("Dor pós-sessão 0–10",0);
+const s={id:uid(),date:today(),focus:rc.focus,minutes:mins,rpe,load:Math.round(mins*rpe),plannedMinutes:rc.mins,plannedRpe:rc.rpe,plannedScore:readiness(d).score,quality:isNaN(quality)?8:quality,postPain:isNaN(postPain)?0:postPain};
+d.sessions.push(s);d.feedback=d.feedback||[];
+d.feedback.push({sessionId:s.id,date:s.date,planned:{minutes:rc.mins,rpe:rc.rpe},actual:{minutes:mins,rpe,quality:s.quality,postPain:s.postPain},gap:{minutes:mins-rc.mins,rpe:rpe-rc.rpe}});
+save(d);dashboard()
+}
 function calendar(){
 const d=data(),days=[];for(let i=0;i<14;i++){let dt=new Date();dt.setDate(dt.getDate()+i);days.push(dt.toISOString().slice(0,10))}
 $("page").innerHTML=`<div class="card"><div class="between"><div><div class="eyebrow">PLANEJAMENTO</div><h1>Agenda</h1></div><button class="btn" onclick="addEvent()">+ Evento</button></div><p class="muted">Organize treino, jogo, descanso e testes para o seu ciclo.</p></div>
@@ -87,26 +105,143 @@ function addEvent(){const d=data(),date=prompt("Data (AAAA-MM-DD)",today());if(!
 
 
 
+function historyIntel(){
+const d=data(), now=new Date(today()+"T12:00:00"), sessions=[...(d.sessions||[]),...(d.matches||[]).map(g=>({...g,focus:"Jogo · "+(g.opponent||"Partida"),load:g.load||((g.minutes||0)*(g.rpe||0))}))].filter(x=>x.date);
+const daysAgo=x=>Math.floor((now-new Date(x.date+"T12:00:00"))/86400000);
+const inRange=(x,n)=>daysAgo(x)>=0&&daysAgo(x)<n;
+const acute=sessions.filter(x=>inRange(x,7)).reduce((a,x)=>a+(Number(x.load)||0),0);
+const last3=sessions.filter(x=>inRange(x,3)).reduce((a,x)=>a+(Number(x.load)||0),0);
+const prev21=sessions.filter(x=>{const q=daysAgo(x);return q>=7&&q<28}).reduce((a,x)=>a+(Number(x.load)||0),0);
+const chronicWeekly=prev21/3;
+const ratio=chronicWeekly?acute/chronicWeekly:1;
+const checks=(d.checkins||[]).filter(x=>inRange(x,14));
+const avg=(k,def)=>checks.length?checks.reduce((a,x)=>a+(Number(x[k])||0),0)/checks.length:def;
+const baseline={sleep:avg("sleep",8),energy:avg("energy",7),mood:avg("mood",7),readiness:avg("readiness",7),pain:avg("pain",0)};
+const recent=sessions.filter(x=>inRange(x,7));
+const avgRpe=recent.length?recent.reduce((a,x)=>a+(Number(x.rpe)||0),0)/recent.length:0;
+return {acute,last3,chronicWeekly,ratio,baseline,avgRpe,sessions:sessions.sort((a,b)=>String(b.date).localeCompare(String(a.date)))};
+}
 function readinessCalc(){
-const d=data(), c=(d.checkins||[]).find(x=>x.date===today()), m=d.matches||[], s=d.sessions||[];
-if(!c) return null;
-const sleep=Math.min(10,(Number(c.sleep)||0)/8*10);
+const d=data(), c=(d.checkins||[]).find(x=>x.date===today());
+if(!c)return null;
+const intel=historyIntel();
+const sleep=Math.max(0,Math.min(10,(Number(c.sleep)||0)/8*10));
 const energy=Number(c.energy)||0, pain=Number(c.pain)||0, mood=Number(c.mood)||0, disp=Number(c.readiness)||0;
 let score=(sleep*.20+energy*.25+mood*.15+disp*.25+(10-pain)*.15)*10;
-const recent=[...s,...m.map(g=>({date:g.date,minutes:g.minutes,rpe:g.rpe,load:g.load||((g.minutes||0)*(g.rpe||0))}))].filter(x=>x.date).sort((a,b)=>String(b.date).localeCompare(String(a.date)));
-const last3=recent.filter(x=>{const dt=new Date(x.date+"T12:00:00"), now=new Date(); return (now-dt)/86400000<=3;});
-const load3=last3.reduce((a,x)=>a+(Number(x.load)||((Number(x.minutes)||0)*(Number(x.rpe)||0))),0);
-if(load3>1200) score-=8; else if(load3>850) score-=4;
-score=Math.max(0,Math.min(100,Math.round(score)));
+if(intel.ratio>1.35)score-=8; else if(intel.ratio>1.15)score-=4;
+if(intel.last3>900)score-=5; else if(intel.last3>650)score-=2;
+if(pain>=6)score-=18; else if(pain>=4)score-=8;
+if(intel.baseline.energy&&energy<intel.baseline.energy-2)score-=4;
+if(intel.baseline.sleep&&Number(c.sleep)<intel.baseline.sleep-1.5)score-=4;
+score=Math.max(20,Math.min(100,Math.round(score)));
 let zone=score>=80?"green":score>=60?"yellow":"red";
 if(pain>=6)zone="red";
-return {score,zone,load3};
+return {score,zone,load3:intel.last3,acute:intel.acute,ratio:intel.ratio,baseline:intel.baseline};
 }
+
+
+function weeklyReport(){
+const d=data(), sessions=(d.sessions||[]).filter(s=>s.date).slice(-7);
+const checkins=(d.checkins||[]).slice(-7);
+const loads=sessions.map(s=>Number(s.load)||0);
+const totalLoad=loads.reduce((a,b)=>a+b,0);
+const minutes=sessions.reduce((a,s)=>a+(Number(s.minutes)||0),0);
+const avgRpe=sessions.length?sessions.reduce((a,s)=>a+(Number(s.rpe)||0),0)/sessions.length:0;
+const avgQuality=sessions.length?sessions.reduce((a,s)=>a+(Number(s.quality)||0),0)/sessions.length:null;
+const painValues=[...sessions.map(s=>Number(s.postPain)),...checkins.map(c=>Number(c.pain))].filter(Number.isFinite);
+const avgPain=painValues.length?painValues.reduce((a,b)=>a+b,0)/painValues.length:0;
+const sleep=checkins.map(c=>Number(c.sleep)).filter(Number.isFinite);
+const energy=checkins.map(c=>Number(c.energy)).filter(Number.isFinite);
+const readinessValues=checkins.map(c=>Number(c.readiness||c.score)).filter(Number.isFinite);
+const avgSleep=sleep.length?sleep.reduce((a,b)=>a+b,0)/sleep.length:null;
+const avgEnergy=energy.length?energy.reduce((a,b)=>a+b,0)/energy.length:null;
+const avgReadiness=readinessValues.length?readinessValues.reduce((a,b)=>a+b,0)/readinessValues.length:null;
+const ai=aiLearning();
+const intel=historyIntel();
+let evolution="Estável",risk="Baixo",recommendation="Mantenha a progressão gradual.";
+if(avgPain>=3 || intel.ratio>1.35){risk="Atenção";recommendation="Reduza volume e priorize recuperação antes de aumentar intensidade.";}
+else if(avgRpe>=8.2 || intel.ratio>1.15){risk="Moderado";recommendation="Mantenha intensidade, mas controle o volume da próxima sessão.";}
+else if(avgReadiness!==null && avgReadiness>=80 && avgPain<=1.5){evolution="Positiva";recommendation="Boa resposta. Pode progredir de forma conservadora.";}
+if(avgQuality!==null && avgQuality>=8)evolution="Positiva";
+return {sessions:sessions.length,totalLoad,minutes,avgRpe,avgQuality,avgPain,avgSleep,avgEnergy,avgReadiness,
+evolution,risk,recommendation,aiConfidence:ai.confidence,aiFactor:ai.factor,loadRatio:intel.ratio};
+}
+function weeklyReportPage(){
+const r=weeklyReport(),p=data().profile||{}, fmt=(v,dash="—")=>v===null||v===undefined||Number.isNaN(v)?dash:v;
+const sleepTxt=r.avgSleep===null?"—":`${r.avgSleep.toFixed(1)} h`;
+const readinessTxt=r.avgReadiness===null?"—":`${Math.round(r.avgReadiness)}%`;
+const qualityTxt=r.avgQuality===null?"—":r.avgQuality.toFixed(1);
+const cards=`
+<div class="hero"><div><span class="eyebrow">FPC PERFORMANCE INTELLIGENCE</span><h1>Relatório semanal</h1><p class="muted">${p.name||"Atleta"} · últimas 7 sessões/registros</p></div><span class="badge ${r.risk==="Baixo"?"good":r.risk==="Moderado"?"warn":"bad"}">${r.risk}</span></div>
+<div class="grid3">
+<div class="kpi"><span class="tag">Carga total</span><b>${Math.round(r.totalLoad)}</b><span class="unit">UA</span></div>
+<div class="kpi"><span class="tag">Minutos</span><b>${r.minutes}</b><span class="unit">MIN</span></div>
+<div class="kpi"><span class="tag">RPE médio</span><b>${r.avgRpe?r.avgRpe.toFixed(1):"—"}</b></div>
+<div class="kpi"><span class="tag">Prontidão média</span><b>${readinessTxt}</b></div>
+<div class="kpi"><span class="tag">Sono médio</span><b>${sleepTxt}</b></div>
+<div class="kpi"><span class="tag">Energia média</span><b>${r.avgEnergy===null?"—":r.avgEnergy.toFixed(1)}/10</b></div>
+</div>
+<div class="card"><div class="between"><h2 class="section-title">📈 Leitura da semana</h2><span class="badge good">${r.evolution}</span></div>
+<p><b>Resposta ao treino:</b> qualidade média ${qualityTxt}${r.avgQuality!==null?" / 10":""}. Dor média ${r.avgPain.toFixed(1)}/10.</p>
+<p><b>Relação com carga:</b> ${r.loadRatio?r.loadRatio.toFixed(2)+"× o padrão recente":"sem histórico suficiente"}.</p>
+<p><b>Recomendação:</b> ${r.recommendation}</p></div>
+<div class="card"><div class="between"><h2 class="section-title">🤖 Inteligência do FPC</h2><span class="badge good">${r.aiConfidence}% confiança</span></div>
+<p>O motor adaptativo está usando o histórico do atleta para ajustar volume e intensidade. Ajuste atual do padrão: <b>${Math.round(r.aiFactor*100)}%</b>.</p>
+<p class="muted small">Quanto mais sessões forem registradas com feedback pós-treino, mais individualizada fica a recomendação.</p></div>
+<div class="card"><h2 class="section-title">🎯 Foco da próxima semana</h2>
+<ul class="list"><li>Manter controle de carga e evitar aumentos bruscos.</li><li>Registrar RPE e resposta pós-sessão em todas as sessões.</li><li>Usar prontidão diária para decidir intensidade.</li><li>${r.recommendation}</li></ul></div>`;
+return shell("Relatório semanal",cards);
+}
+
+function aiLearning(){
+const d=data(), fb=d.feedback||[];
+if(!fb.length) return {factor:1,confidence:0,label:"Aprendizado inicial",reason:"Ainda não há sessões suficientes para calibrar seu perfil.",samples:0};
+const recent=fb.slice(-12); let score=0,weight=0;
+recent.forEach((f,i)=>{
+ const w=.5+(i+1)/recent.length, q=Number(f.actual?.quality)||0, pain=Number(f.actual?.postPain)||0, gap=Math.abs(Number(f.gap?.rpe)||0);
+ let o=q/10; if(pain>=4)o-=.35; else if(pain>=2)o-=.12; if(gap>=2)o-=.08;
+ score+=Math.max(0,Math.min(1,o))*w; weight+=w;
+});
+const quality=weight?score/weight:.5;
+let factor=.88+quality*.24, last=recent[recent.length-1];
+if(last){
+ const ar=Number(last.actual?.rpe), pr=Number(last.planned?.rpe), pain=Number(last.actual?.postPain)||0;
+ if(pain>=5||ar>=pr+2)factor-=.06;
+ if(Number(last.actual?.quality)>=9&&pain<=1&&ar<=pr+1)factor+=.04;
+}
+factor=Math.max(.82,Math.min(1.15,factor));
+const confidence=Math.min(95,Math.round(25+recent.length*6));
+const label=confidence>=70?"Aprendizado consolidado":confidence>=45?"Aprendizado em evolução":"Aprendizado inicial";
+const reason=quality>=.82?"Você tem respondido bem às cargas propostas; o sistema pode progredir com cautela.":quality>=.65?"Sua resposta às sessões está estável; o sistema mantém a progressão controlada.":"Sua resposta recente pede cautela; o sistema tende a reduzir volume/intensidade.";
+return {factor,confidence,label,reason,samples:recent.length,quality};
+}
+function aiRecommendation(){
+const r=readinessCalc(),intel=historyIntel(),ai=aiLearning(); if(!r)return null;
+let volume=ai.factor,intensity=ai.factor;
+if(r.zone==="yellow"){volume*=.82;intensity*=.92}
+if(r.zone==="red"){volume*=.55;intensity*=.72}
+if(intel.ratio>1.35)volume*=.78; else if(intel.ratio>1.15)volume*=.90;
+if(intel.avgRpe>8)intensity*=.94;
+return {volume:Math.max(.45,Math.min(1.1,volume)),intensity:Math.max(.55,Math.min(1.08,intensity)),...ai};
+}
+
 function adaptiveWorkout(){
-const r=readinessCalc(); if(!r) return null;
-if(r.zone==="green") return {title:"Performance — Alta intensidade",desc:"Seu estado permite uma sessão completa de performance.",duration:"60–75 min",focus:["Aceleração e velocidade","Mudança de direção","Força e potência","Técnica com intensidade"],color:"good"};
-if(r.zone==="yellow") return {title:"Performance — Intensidade moderada",desc:"Boa condição, mas hoje vale controlar o volume e a intensidade.",duration:"45–60 min",focus:["Mobilidade e ativação","Força técnica","Agilidade controlada","Técnica com bola"],color:""};
-return {title:"Recovery — Recuperação ativa",desc:"Prioridade hoje: recuperar e manter qualidade de movimento.",duration:"25–40 min",focus:["Mobilidade","Ativação leve","Core de baixa intensidade","Técnica leve / recuperação"],color:""};
+const r=readinessCalc(),d=data(); if(!r)return null;
+const p=(d.profile.position||"").toLowerCase(),ai=aiRecommendation();
+let title="Performance — Sessão completa",duration="60–75 min",focus=["Ativação + mobilidade","Aceleração / velocidade","Força e potência","Técnica específica","Tomada de decisão"],color="good";
+if(p.includes("lateral"))focus=["Ativação + mobilidade","Aceleração e mudança de direção","1x1 defensivo + recuperação","Cruzamento / passe em progressão","Jogo reduzido com decisão"];
+else if(p.includes("meia"))focus=["Ativação + mobilidade","Passe sob pressão","Aceleração curta","Recepção orientada + tomada de decisão","Jogo reduzido"];
+else if(p.includes("volante"))focus=["Ativação + mobilidade","Cobertura + deslocamento","Passe sob pressão","Aceleração curta","Jogo reduzido / transição"];
+else if(p.includes("ponta"))focus=["Ativação + mobilidade","Aceleração + 1x1","Finalização","Mudança de direção","Jogo reduzido"];
+if(r.zone==="yellow"){title="Performance — Intensidade moderada";duration="45–60 min";focus=focus.slice(0,4);color="warn"}
+if(r.zone==="red"){title="Recovery — Recuperação ativa";duration="25–40 min";focus=["Mobilidade","Ativação leve","Core de baixa intensidade","Técnica leve / controle de bola"];color="bad"}
+if(r.ratio>1.35&&r.zone!=="red"){title="Controle de carga — Qualidade";duration="40–55 min";focus=["Mobilidade + ativação","Técnica de alta qualidade","Aceleração curta com volume reduzido","Tomada de decisão sem excesso de volume"];color="warn"}
+let [lo,hi]=duration.replace(" min","").split("–").map(Number);
+if(ai){lo=Math.round(lo*ai.volume);hi=Math.round(hi*ai.volume);duration=`${Math.max(20,lo)}–${Math.max(25,hi)} min`;}
+const base=r.score>=85?7:r.score>=70?6:r.score>=55?5:3;
+const targetRpe=Math.max(2,Math.min(9,Math.round(base*(ai?.intensity||1)*10)/10));
+const reason=r.ratio>1.35?"carga recente acima do seu padrão":r.last3>650?"volume dos últimos 3 dias elevado":r.score>=80?"boa prontidão e carga controlada":"sinais de recuperação pedem controle";
+return {title,duration,focus,color,reason,score:r.score,aiConfidence:ai?.confidence||0,aiLabel:ai?.label||"Aprendizado inicial",aiReason:ai?.reason||"",targetRpe};
 }
 function checkinPage(){
 const d=data(), c=d.checkins||[], t=today(), existing=c.find(x=>x.date===t), r=existing?readinessCalc():null, w=r?adaptiveWorkout():null;
@@ -224,3 +359,7 @@ function importData(){const i=document.createElement("input");i.type="file";i.ac
 if(sess())app();else loginUI();
 </script>
 </body></html>
+<script>
+window.weeklyReport = weeklyReport;
+window.weeklyReportPage = weeklyReportPage;
+</script>
